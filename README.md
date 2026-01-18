@@ -1,4 +1,4 @@
-# FMIR
+# Reg-TTR
 **a registration framework that effectively combines a foundation model with test-time refinement**  
 *Accepted at ISBI 2026*
 
