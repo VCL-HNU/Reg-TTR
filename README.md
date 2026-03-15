@@ -43,6 +43,32 @@ python testACDC.py -m UniGradICON -d acdcreg -bs 1 --num_classes 4
 - `-d abdomenreg`: Dataset used, specifically "abdomenreg".
 - `-bs 1`: Batch size, defined as 1.
 
+## Usage
+Run the script with the following command in folder `./src` to reproduce the results:
+```
+python train_registration.py -m EOIR -d abdomenreg -bs 1 --num_classes 14 start_channel=32 --gpu_id 0
+python train_registration.py -m EOIR_OASIS -d oasisreg -bs 1 --num_classes 36 start_channel=32 --gpu_id 0
+python train_registration_ACDC.py -m EOIR_ACDC -d acdcreg -bs 1 --num_classes 4 start_channel=32 --gpu_id 0
+python train_registration_LUMIR.py --model EOIR -d lumirreg -bs 1 start_channel=32 --gpu_id 0 
+```
+
+- `-d abdomenreg`: Dataset used, specifically 'abdomenreg'.
+- `-m EOIR`: Model name, set to 'EOIR'.
+- `-bs 1`: Batch size, defined as 1.
+- `start_channel=32`: Number of starting channels (`N_s`), set to 32.
+
+
+To test the trained model, run the script with the following command in folder `./src` to get the npz files:
+```
+python test_registration_abdomen.py -m EOIR -d abdomenreg -bs 1 start_channel=32 --gpu_id 0
+python test_registration_OASIS.py -m EOIR_OASIS -d oasisreg -bs 1 start_channel=32 --gpu_id 0
+python test_registration_ACDC.py -m EOIR_ACDC -d acdcreg -bs 1 start_channel=32 --gpu_id 0 
+python test_registration_LUMIR.py -m EOIR -d lumirreg -bs 1 start_channel=32 --gpu_id 0 
+```
+- `-d abdomenreg`: Dataset used, specifically 'abdomenreg'.
+- `-m EOIR`: Model name, set to 'EOIR'.
+- `-bs 1`: Batch size, defined as 1.
+- `start_channel=32`: Number of starting channels (`N_s`), set to 32.
 
 ## Citation
 If our work has influenced or contributed to your research, please kindly acknowledge it by citing:
