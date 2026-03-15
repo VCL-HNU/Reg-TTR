@@ -3,8 +3,6 @@
 
 ![Pytorch](https://img.shields.io/badge/Implemented%20in-Pytorch-red.svg) <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a> [![arXiv](https://img.shields.io/badge/arXiv-2601.19114-b31b1b.svg)](https://doi.org/10.48550/arXiv.2601.19114)
 
-**a registration framework that effectively combines a foundation model with test-time refinement**
-*Accepted at ISBI 2026*
 
 This repository hosts the official PyTorch implementation of "REG-TTR, Test-Time Refinement for Fast, Robust and Accurate Image Registration". Reg-TTR is an efficient test-time refinement framework for medical image registration that synergizes the complementary strengths of deep learning and conventional registration techniques. It can achieve state-of-the-art registration accuracy on diverse medical image registration tasks while maintaining fast inference speeds close to mainstream deep learning-based methods, with only 21% additional inference time (0.56s) incurred by the refinement process. We have demonstrated its efficacy in unsupervised inter-subject abdominal CT registration and unsupervised intra-subject cardiac MR (ACDC dataset) registration, and verified its generalizability in boosting the performance of various pre-trained registration models including registration foundation models and task-specific specialized models.
 
