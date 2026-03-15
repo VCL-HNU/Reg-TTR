@@ -30,7 +30,7 @@ Reg-TTR is a novel efficient test-time refinement framework for medical image re
 Pretrained Weights for uniGradICON 
 The pre-trained weights of the uniGradICON registration foundation model used in this project are obtained directly from the official release of the uniGradICON model. You can find the model weights [here](https://github.com/uncbiag/uniGradICON/releases).
 
-The datasets used are **Abdomen CT** and **ACDC**.
+The datasets used are **[Abdomen CT](https://drive.usercontent.google.com/download?id=1aWyS_mQ5n7X2bTk9etHrn5di2-EZEzyO&export=download&authuser=0)** and **[ACDC](https://www.creatis.insa-lyon.fr/Challenge/acdc/databases.html)**.
 
 ## Usage
 Run the following commands in the `./src` folder to reproduce the results:
