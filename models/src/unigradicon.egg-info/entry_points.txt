@@ -1,0 +1,4 @@
+[console_scripts]
+unigradicon-jacobian = unigradicon:compute_jacobian_map_command
+unigradicon-register = unigradicon:main
+unigradicon-warp = unigradicon:warp_command
