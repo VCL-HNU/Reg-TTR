@@ -21,12 +21,29 @@ This repository hosts the official PyTorch implementation of "REG-TTR, Test-Time
     <img src="./figs/ACDC.jpg" width="600"/>
 </p>
 
-Reg-TTR is a novel efficient test-time refinement framework for medical image registration, which can be incorporated with various pre-trained registration models like registration foundation models (uniGradICON), task-specific specialized models (VoxelMorph, TransMorph) and RDP, MemWarp to achieve superior registration accuracy while maintaining fast inference speed.
+**Quantitative comparison on the Abdomen CT dataset.** ↑ higher is better, ↓ lower is better. *uniGradICON\* denotes utilizing uniGradICON's own instance optimization.*
+
+| Model | Type | Dice (%) ↑ | HD95 (mm) ↓ | SDlogJ ↓ | Time (s) |
+|---|---|---|---|---|---|
+| Initial | - | 30.86 | 11.95 | 0.00 | - |
+| VoxelMorph | Semi | 47.05 | 23.08 | 0.13 | < 1.0 |
+| FourierNet | Semi | 42.80 | 22.95 | 0.13 | < 1.0 |
+| CorrMLP | Semi | 56.58 | 20.40 | 0.16 | < 1.0 |
+| VoxelMorph | Un | 41.90 | 25.97 | 0.12 | < 1.0 |
+| FourierNet | Un | 41.83 | 25.25 | 0.11 | < 1.0 |
+| CorrMLP | Un | 51.01 | 22.80 | 0.13 | < 1.0 |
+| ConvexAdam | Un | 50.23 | 22.60 | 0.13 | 7.0 |
+| uniGradICON | Un | 53.33 | 20.20 | 0.13 | 2.64 |
+| uniGradICON* | Un | 53.99 | 19.94 | 0.17 | 32.48 |
+| **Reg-TTR (Ours)** | Un | **56.81** | 20.15 | 0.17 | 3.20 |
+| w/o $L_{ssim}$ | Un | 56.45 | 20.10 | 0.15 | 3.18 |
+
+Reg-TTR is a novel efficient test-time refinement framework for medical image registration, which can be incorporated with various pre-trained registration models like registration foundation models ([uniGradICON](https://github.com/uncbiag/uniGradICON)), task-specific specialized models ([VoxelMorph](https://github.com/voxelmorph/voxelmorph), [TransMorph](https://github.com/junyuchen245/TransMorph_Transformer_for_Medical_Image_Registration)) and [RDP](https://github.com/ZAX130/RDP), [MemWarp](https://github.com/tinymilky/Mem-Warp) to achieve superior registration accuracy while maintaining fast inference speed.
 
 
 ## Datasets
 Pretrained Weights for uniGradICON 
-The pre-trained weights of the uniGradICON registration foundation model used in this project are obtained directly from the official release of the uniGradICON model. You can find the model weights [here](https://github.com/uncbiag/uniGradICON/releases).
+The pre-trained weights of the uniGradICON registration foundation model used in this project are obtained directly from the official release of the uniGradICON model. You can find the uniGradICON model weights [here](https://github.com/uncbiag/uniGradICON/releases).
 
 The datasets used are **[Abdomen CT](https://drive.usercontent.google.com/download?id=1aWyS_mQ5n7X2bTk9etHrn5di2-EZEzyO&export=download&authuser=0)** and **[ACDC](https://www.creatis.insa-lyon.fr/Challenge/acdc/databases.html)**.
 
