@@ -56,3 +56,9 @@ If our work has influenced or contributed to your research, please kindly acknow
   year={2026}
 }
 ```
+
+## Acknowledgment
+We extend our sincere appreciation to UniGradicon and [ConvexAdam](https://github.com/multimodallearning/convexAdam) for their important contributions. Portions of the code in this repository are adapted from these projects.
+
+###### Keywords
+Keywords: Medical image registration, Test-time refinement, Registration foundation model, Instance optimization
