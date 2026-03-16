@@ -75,10 +75,6 @@ class acdcreg_loader(Dataset):
                 'es_img': es_img,
                 'ed_seg': ed_seg,
                 'es_seg': es_seg,
-                # 'ed_emb': ed_emb,
-                # 'es_emb': es_emb,
-                # 'ed_autoseg': ed_autoseg,
-                # 'es_autoseg': es_autoseg,
             }
             self.data.append(sub)
         print('Number of subjects: ', len(self.data))
