@@ -32,23 +32,23 @@ from utils.loss import NccLoss
 
 def extract_unigradicon_flow(model, moving, fixed, debug=False):
     """
-    从 UniGradICON 模型提取初始位移场（体素单位）
+    Extract initial displacement field from UniGradICON model (in voxels)
 
     Args:
-        model:  预训练 UniGradICON 模型实例
-        moving: 移动图像 [B, C, H, W, D]
-        fixed:  固定图像 [B, C, H, W, D]
+        model:  Pre-trained UniGradICON model instance
+        moving: Moving image [B, C, H, W, D]
+        fixed:  Fixed image [B, C, H, W, D]
 
     Returns:
-        flow:   位移场 [B, 3, H, W, D]（体素单位）
+        flow:   Displacement field [B, 3, H, W, D] (in voxels)
     """
     original_shape = moving.shape[2:]
     expected_shape = (175, 175, 175)
 
-    # 调整输入尺寸至模型期望尺寸
+    # Adjust input size to the model's expected size
     if original_shape != expected_shape:
         if debug:
-            print(f"调整输入尺寸: {original_shape} → {expected_shape}")
+            print(f"Adjusting input size: {original_shape} → {expected_shape}")
         moving_in = F.interpolate(moving, size=expected_shape, mode='trilinear', align_corners=False)
         fixed_in = F.interpolate(fixed, size=expected_shape, mode='trilinear', align_corners=False)
     else:
@@ -57,12 +57,12 @@ def extract_unigradicon_flow(model, moving, fixed, debug=False):
 
     with torch.no_grad():
         _ = model(moving_in, fixed_in)
-        phi_AB = model.phi_AB_vectorfield  # 归一化坐标系下的变形场
+        phi_AB = model.phi_AB_vectorfield  # Deformation field in normalized coordinate system
         identity = model.identity_map
 
         flow_normalized = phi_AB - identity
 
-        # 转换为体素单位
+        # Convert to voxel units
         D, H, W = phi_AB.shape[2:]
         scaling = torch.tensor(
             [D - 1, H - 1, W - 1],
@@ -71,10 +71,10 @@ def extract_unigradicon_flow(model, moving, fixed, debug=False):
         ).view(1, 3, 1, 1, 1)
         flow_voxel = flow_normalized * scaling
 
-    # 将流场缩放回原始图像尺寸
+    # Scale the flow field back to the original image size
     if original_shape != expected_shape:
         if debug:
-            print(f"调整流场回原始尺寸: {expected_shape} → {original_shape}")
+            print(f"Adjusting flow field back to original size: {expected_shape} → {original_shape}")
         flow_voxel = F.interpolate(flow_voxel, size=original_shape, mode='trilinear', align_corners=False)
         for i in range(3):
             flow_voxel[:, i] *= original_shape[i] / expected_shape[i]
@@ -87,7 +87,7 @@ def extract_unigradicon_flow(model, moving, fixed, debug=False):
 
 
 class Grad3d(nn.Module):
-    """一阶梯度正则化损失"""
+    """First-order gradient regularization loss"""
 
     def __init__(self, penalty='l1', loss_mult=None):
         super().__init__()
@@ -160,7 +160,7 @@ class SSIM3D(nn.Module):
 
 
 class MultiScaleNCC(nn.Module):
-    """多尺度归一化互相关损失"""
+    """Multi-scale normalized cross-correlation loss"""
 
     def __init__(self, window_sizes=(5, 9, 13), weights=None):
         super().__init__()
@@ -175,17 +175,17 @@ class MultiScaleNCC(nn.Module):
 
 def unsupervised_optimization(moving, fixed, initial_flow, current_shape, config, debug=False):
     """
-    无监督测试时实例优化
+    Unsupervised test-time instance optimization
 
     Args:
-        moving:        移动图像 [B, C, H, W, D]
-        fixed:         固定图像 [B, C, H, W, D]
-        initial_flow:  初始位移场 [B, 3, H, W, D]
-        current_shape: 图像空间尺寸 (H, W, D)
-        config:        优化配置字典
+        moving:        Moving image [B, C, H, W, D]
+        fixed:         Fixed image [B, C, H, W, D]
+        initial_flow:  Initial displacement field [B, 3, H, W, D]
+        current_shape: Image spatial dimensions (H, W, D)
+        config:        Optimization configuration dictionary
 
     Returns:
-        disp_hr: 优化后的位移场 [B, 3, H, W, D]
+        disp_hr: Optimized displacement field [B, 3, H, W, D]
     """
     device = moving.device
     H, W, D = current_shape
@@ -198,7 +198,7 @@ def unsupervised_optimization(moving, fixed, initial_flow, current_shape, config
     lambda_ssim = config.get('lambda_ssim', 2.0)
 
     with torch.enable_grad():
-        # 初始化可优化位移场（以 Conv3d 权重形式存储）
+        # Initialize optimizable displacement field (stored as Conv3d weights)
         initial_flow_lr = F.interpolate(
             initial_flow.detach(),
             size=(H // grid_sp_adam, W // grid_sp_adam, D // grid_sp_adam),
@@ -278,7 +278,7 @@ def unsupervised_optimization(moving, fixed, initial_flow, current_shape, config
 
             if patience_counter >= max_patience:
                 if debug:
-                    print(f"提前停止: 损失连续 {max_patience} 次迭代未改善")
+                    print(f"Early stopping: loss has not improved for {max_patience} consecutive iterations")
                 break
 
             if it % 2 == 0:
@@ -291,26 +291,26 @@ def unsupervised_optimization(moving, fixed, initial_flow, current_shape, config
                 size=(H, W, D), mode='trilinear', align_corners=False
             )
             if debug:
-                print(f"  ✓ 优化完成: 最终 loss={best_loss:.4f}")
+                print(f"  ✓ Optimization finished: final loss={best_loss:.4f}")
 
     return disp_hr
 
 
 def unified_registration(moving, fixed, pretrained_model, config):
     """
-    UniGradICON 预训练初始化 + 测试时实例优化配准
+    UniGradICON pre-trained initialization + test-time instance optimization registration
 
     Args:
-        moving:           移动图像 [B, C, H, W, D]
-        fixed:            固定图像 [B, C, H, W, D]
-        pretrained_model: 预训练 UniGradICON 模型
-        config:           配准配置字典
+        moving:           Moving image [B, C, H, W, D]
+        fixed:            Fixed image [B, C, H, W, D]
+        pretrained_model: Pre-trained UniGradICON model
+        config:           Registration configuration dictionary
 
     Returns:
-        initial_flow:      初始位移场 [B, 3, H, W, D]
-        optimized_flow:    优化后位移场 [B, 3, H, W, D]
-        initial_flow_time: 初始流场预测耗时（秒）
-        optimization_time: 实例优化耗时（秒）
+        initial_flow:      Initial displacement field [B, 3, H, W, D]
+        optimized_flow:    Optimized displacement field [B, 3, H, W, D]
+        initial_flow_time: Initial flow prediction time (seconds)
+        optimization_time: Instance optimization time (seconds)
     """
     debug = config.get('debug', False)
 
@@ -321,11 +321,11 @@ def unified_registration(moving, fixed, pretrained_model, config):
 
     if debug:
         print("\n" + "=" * 80)
-        print("  开始 UniGradICON 配准流程")
-        print(f"  原始尺寸: {original_shape} | 模型期望尺寸: (175, 175, 175)")
+        print("  Starting UniGradICON registration process")
+        print(f"  Original size: {original_shape} | Model expected size: (175, 175, 175)")
         print("=" * 80)
 
-    # 步骤1: 初始流场预测
+    # Step 1: Initial flow prediction
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     t0 = time.time()
@@ -336,10 +336,10 @@ def unified_registration(moving, fixed, pretrained_model, config):
         torch.cuda.synchronize()
     initial_flow_time = time.time() - t0
 
-    # 步骤2: 实例优化
+    # Step 2: Instance optimization
     if config.get('max_iterations', 0) > 0:
         if debug:
-            print(f"  开始实例优化 (max_iterations={config['max_iterations']})")
+            print(f"  Starting instance optimization (max_iterations={config['max_iterations']})")
             print("-" * 80)
 
         if torch.cuda.is_available():
@@ -355,14 +355,14 @@ def unified_registration(moving, fixed, pretrained_model, config):
         optimization_time = time.time() - t1
 
         if debug:
-            print(f"实例优化完成，用时: {optimization_time:.4f}s")
+            print(f"Instance optimization finished, time elapsed: {optimization_time:.4f}s")
     else:
         if debug:
-            print("跳过实例优化 (max_iterations=0)")
+            print("Skipping instance optimization (max_iterations=0)")
         optimized_flow = initial_flow
         optimization_time = 0.0
 
-    # 统一维度
+    # Unify dimensions
     if initial_flow.dim() == 4:
         initial_flow = initial_flow.unsqueeze(0)
     if optimized_flow.dim() == 4:
@@ -373,7 +373,7 @@ def unified_registration(moving, fixed, pretrained_model, config):
         optimized_flow = optimized_flow.repeat(batch_size, 1, 1, 1, 1)
 
     if debug:
-        print(f"  ✓ 配准完成 | 初始流场: {initial_flow_time:.4f}s | 优化: {optimization_time:.4f}s")
+        print(f"  ✓ Registration complete | Initial flow: {initial_flow_time:.4f}s | Optimization: {optimization_time:.4f}s")
 
     return (
         initial_flow.contiguous(),
@@ -390,7 +390,7 @@ def run(opt):
 
     test_loader = getters.getDataLoader(opt, split=opt['field_split'])
 
-    print(f"加载 UniGradICON 模型: {opt['model']} ...")
+    print(f"Loading UniGradICON model: {opt['model']} ...")
     pretrained_model, _ = getters.getTestModelWithCheckpoints(opt)
     if torch.cuda.is_available():
         pretrained_model = pretrained_model.cuda().float()
@@ -407,8 +407,8 @@ def run(opt):
     }
 
     print("\n" + "=" * 80)
-    print(f"✓ 模型: UniGradICON")
-    print("配置参数:")
+    print(f"✓ Model: UniGradICON")
+    print("Configuration parameters:")
     for k, v in registration_config.items():
         print(f"  {k}: {v}")
     print("=" * 80)
@@ -439,7 +439,7 @@ def run(opt):
             y, y_seg = data[2].float(), data[3].long()
 
             print("\n" + "=" * 80)
-            print(f"处理 Pair ({idx1}, {idx2})")
+            print(f"Processing Pair ({idx1}, {idx2})")
             print("=" * 80)
 
             if torch.cuda.is_available():
@@ -496,8 +496,8 @@ def run(opt):
             init_hd95.update(hd95_2, x.size(0))
 
             improvement = dsc1.item() - dsc2.item()
-            status = "优秀" if dsc1.item() >= 0.75 else "良好" if dsc1.item() >= 0.70 else "待优化"
-            print(f"Pair ({idx1}, {idx2}) | 配准效果: {status} | "
+            status = "Excellent" if dsc1.item() >= 0.75 else "Good" if dsc1.item() >= 0.70 else "Needs Tuning"
+            print(f"Pair ({idx1}, {idx2}) | Registration effect: {status} | "
                   f"dice: {dsc1.item():.4f} ({improvement:+.4f}), init: {dsc2.item():.4f}, "
                   f"jac: {jac_det_val:.4f}, hd95: {hd95_1:.4f}, "
                   f"init_time: {init_time:.4f}s, opt_time: {opt_time:.4f}s, "
@@ -509,9 +509,9 @@ def run(opt):
             ]
             df_data.append(loop_df_data)
 
-            # 保存配准结果
+            # Save registration results
             if opt['is_save'] and num == 34:
-                print(f"   正在保存配准结果 (Pair {idx1}-{idx2})...")
+                print(f"   Saving registration results (Pair {idx1}-{idx2})...")
                 fp_flow = os.path.join('logs', opt['dataset'], 'UniGradICON_Optimized', 'flow_fields')
                 fp_initial = os.path.join('logs', opt['dataset'], 'UniGradICON_Optimized', 'initial_flows')
                 fp_warped = os.path.join('logs', opt['dataset'], 'UniGradICON_Optimized', 'warped_images')
@@ -546,35 +546,35 @@ def run(opt):
                     nib.save(nib.Nifti1Image(tensor.cpu().numpy(), None),
                              os.path.join(fp_warped, f'{prefix}_{name}.nii.gz'))
 
-                print(f"  ✓ 已保存配准结果 (Pair {idx1}-{idx2})")
+                print(f"  ✓ Registration results saved (Pair {idx1}-{idx2})")
 
-    # ── 汇总统计 ──────────────────────────────────────────────────────────────
+    # ── Summary Statistics ──────────────────────────────────────────────────────────────
     overall_improvement = eval_dsc.avg - init_dsc.avg
-    status = "优秀" if eval_dsc.avg >= 0.75 else ("良好" if eval_dsc.avg >= 0.70 else "待优化")
+    status = "Excellent" if eval_dsc.avg >= 0.75 else ("Good" if eval_dsc.avg >= 0.70 else "Needs Tuning")
 
     avg_init_time = total_initial_flow_time / total_registrations if total_registrations > 0 else 0
     avg_opt_time = total_optimization_time / total_registrations if total_registrations > 0 else 0
     avg_total_time = total_registration_time / total_registrations if total_registrations > 0 else 0
 
     print("\n" + "=" * 80)
-    print("最终结果统计 [UniGradICON]")
+    print("Final result statistics [UniGradICON]")
     print("=" * 80)
     print(f"{status}: Dice {init_dsc.avg:.4f} ➜ {eval_dsc.avg:.4f} ({overall_improvement:+.4f})")
-    print("\n器官分项 Dice:")
+    print("\nOrgan-wise Dice:")
     for idx in range(1, 14):
         print(f"  {label2text_dict.get(idx, f'Organ{idx}')}: {organ_eval_dsc[idx - 1].avg:.4f}")
-    print(f"\n形变质量: jac_det={eval_det.avg:.6f}, std_dev={eval_std_det.avg:.4f}")
-    print(f"边界精度: hd95={eval_hd95.avg:.4f}")
+    print(f"\nDeformation quality: jac_det={eval_det.avg:.6f}, std_dev={eval_std_det.avg:.4f}")
+    print(f"Boundary precision: hd95={eval_hd95.avg:.4f}")
     print("\n" + "=" * 80)
-    print("时间统计")
+    print("Time statistics")
     print("=" * 80)
-    print(f"初始流场预测总时间: {total_initial_flow_time:.3f}s")
-    print(f"实例优化总时间:     {total_optimization_time:.3f}s")
-    print(f"完整配准总时间:     {total_registration_time:.3f}s")
-    print(f"平均初始流场时间:   {avg_init_time:.4f}s/配准")
-    print(f"平均实例优化时间:   {avg_opt_time:.4f}s/配准")
-    print(f"平均完整配准时间:   {avg_total_time:.4f}s/配准")
-    print(f"总配准次数:         {total_registrations}")
+    print(f"Total initial flow prediction time: {total_initial_flow_time:.3f}s")
+    print(f"Total instance optimization time:   {total_optimization_time:.3f}s")
+    print(f"Total full registration time:       {total_registration_time:.3f}s")
+    print(f"Average initial flow time:          {avg_init_time:.4f}s/registration")
+    print(f"Average instance optimization time: {avg_opt_time:.4f}s/registration")
+    print(f"Average full registration time:     {avg_total_time:.4f}s/registration")
+    print(f"Total number of registrations:      {total_registrations}")
     print("=" * 80)
 
     avg_organ_dsc = [organ_eval_dsc[i].avg for i in range(13)]
@@ -594,7 +594,7 @@ def run(opt):
     fp = os.path.join('logs', opt['dataset'], 'results_UniGradICON_Optimized.csv')
     os.makedirs(os.path.dirname(fp), exist_ok=True)
     df.to_csv(fp, index=False)
-    print(f"\n✓ 结果已保存至: {fp}")
+    print(f"\n✓ Results saved to: {fp}")
 
 
 if __name__ == '__main__':
@@ -607,7 +607,7 @@ if __name__ == '__main__':
         'n_checkpoints': 2,
     }
 
-    parser = argparse.ArgumentParser(description="UniGradICON + 实例优化框架（腹部CT数据集）")
+    parser = argparse.ArgumentParser(description="UniGradICON + Instance Optimization Framework (Abdomen CT Dataset)")
     parser.add_argument("-m", "--model", type=str, default='UniGradICON')
     parser.add_argument("-bs", "--batch_size", type=int, default=1)
     parser.add_argument("-d", "--dataset", type=str, default='abdomenreg')
@@ -617,7 +617,7 @@ if __name__ == '__main__':
     parser.add_argument("--is_save", type=int, default=1)
     parser.add_argument("--num_classes", type=int, default=14)
     parser.add_argument("--log", type=str, default="./logs/abdomenreg/UniGradICON")
-    # 实例优化参数
+    # Instance optimization parameters
     parser.add_argument("--debug", type=bool, default=True)
     parser.add_argument("--learning_rate", type=float, default=0.1)
     parser.add_argument("--lambda_sim", type=float, default=1.0)
@@ -631,7 +631,7 @@ if __name__ == '__main__':
     opt['nkwargs'] = {s.split('=')[0]: s.split('=')[1] for s in unknowns}
 
     print("\n" + "=" * 80)
-    print("✓ UniGradICON + 实例优化框架（腹部CT数据集）")
+    print("✓ UniGradICON + Instance Optimization Framework (Abdomen CT Dataset)")
     print("=" * 80)
 
     run(opt)
