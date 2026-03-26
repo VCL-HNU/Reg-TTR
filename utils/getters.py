@@ -139,17 +139,12 @@ def findBestDiceByEpoch(save_path, epoch):
 
 
 def getTrainModelWithCheckpoints(opt, model_type=None):
-    """
-    加载训练模型和检查点
-    新增：支持从指定checkpoint继续训练
-    """
     print("----->>>> Loading model %s " % opt['model'])
 
     init_epoch = 0
     model = getModel(opt)
-    optimizer_state = None  # 用于返回优化器状态
+    optimizer_state = None
 
-    # ========== 新增逻辑：resume模式 ==========
     if 'resume_path' in opt and opt['resume_path'] is not None:
         if os.path.exists(opt['resume_path']):
             print(f"\n{'=' * 60}")
@@ -159,28 +154,23 @@ def getTrainModelWithCheckpoints(opt, model_type=None):
 
             checkpoint = torch.load(opt['resume_path'])
 
-            # 1. 加载模型权重
             if 'state_dict' in checkpoint:
                 states = convert_state_dict(checkpoint['state_dict'])
             else:
-                # 兼容旧格式（直接是state_dict）
                 states = convert_state_dict(checkpoint)
             model.load_state_dict(states)
             print("----->>>> Model weights loaded ✓")
 
-            # 2. 加载epoch信息
             if 'epoch' in checkpoint:
                 init_epoch = checkpoint['epoch'] + 1
                 print(f"----->>>> Will resume from epoch {init_epoch}")
 
-            # 3. 加载优化器状态
             if 'optimizer' in checkpoint:
                 optimizer_state = checkpoint['optimizer']
                 print("----->>>> Optimizer state loaded ✓")
             else:
                 print("----->>>> Warning: No optimizer state in checkpoint")
 
-            # 4. 显示之前的分数
             if 'score' in checkpoint:
                 print(f"----->>>> Previous score: {checkpoint['score']:.4f}")
 
@@ -190,7 +180,6 @@ def getTrainModelWithCheckpoints(opt, model_type=None):
             print("----->>>> Training from scratch")
             return model, 0, None
 
-    # ========== 原有逻辑保持不变 ==========
     if model_type is None:
         return model, init_epoch, None
 
@@ -223,13 +212,9 @@ def getTrainModelWithCheckpoints(opt, model_type=None):
 
 
 def getTestModelWithCheckpoints(opt):
-    """
-    加载测试模型和权重
-    支持直接指定权重文件路径
-    """
+
     model = getModel(opt)
 
-    # UniGradICON 使用预训练权重,跳过检查点加载
     if opt['model'] in ['UniGradICON', 'UniGradICONWrapper', 'UniGradICON_ConvexAdam_Hybrid']:
         print(f"{opt['model']} uses pretrained weights, skipping checkpoint loading")
         info = {
@@ -239,24 +224,20 @@ def getTestModelWithCheckpoints(opt):
         }
         return model, info
 
-    # 如果 load_ckpt 是一个存在的 .pth 文件路径,直接加载
     if opt['load_ckpt'].endswith('.pth') and os.path.exists(opt['load_ckpt']):
         print(f"----->>>> Loading weights from: {opt['load_ckpt']}")
         states = convert_state_dict(torch.load(opt['load_ckpt']))
         model.load_state_dict(states)
 
-        # 尝试从文件名解析 epoch 和 score
         basename = os.path.basename(opt['load_ckpt'])
         epoch = '0'
         score = '0.0'
 
-        # 尝试匹配 best_score_X_net_epoch_Y.pth
         match = re.search(r'best_score_([\d\.]+)_net_epoch_(\d+)', basename)
         if match:
             score = match.group(1)
             epoch = match.group(2)
         else:
-            # 尝试匹配 net_epoch_X_score_Y.pth
             match = re.search(r'net_epoch_(\d+)_score_([\d\.]+)', basename)
             if match:
                 epoch = match.group(1)
@@ -271,7 +252,6 @@ def getTestModelWithCheckpoints(opt):
         }
         return model, info
 
-    # 如果是 'none',不加载权重
     if opt['load_ckpt'] == 'none':
         print("----->>>> No weights loaded")
         info = {
@@ -281,7 +261,6 @@ def getTestModelWithCheckpoints(opt):
         }
         return model, info
 
-    # 否则报错
     raise ValueError(
         f"Invalid load_ckpt: {opt['load_ckpt']}\n"
         f"Please provide:\n"
