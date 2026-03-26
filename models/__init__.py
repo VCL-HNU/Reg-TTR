@@ -1,5 +1,3 @@
-
-
 def getModel(opt):
     model_name = opt['model']
     if model_name == 'UniGradICON':
